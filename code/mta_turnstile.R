@@ -15,6 +15,13 @@ comma = scales::comma
 download = function(url, to, f, ...)
     download.update.meta(data.root, url, to, f, ...)
 
+varn = function(v, na.rm = F)
+# Variance with n instead of (n - 1) in the denominator.
+    mean((v - mean(v, na.rm = na.rm))^2, na.rm = na.rm)
+sdn = function(v, na.rm = F)
+# Standard deviation with n instead of (n - 1) in the denominator.
+    sqrt(varn(v, na.rm))
+
 turnstile = function()
   # Get the number of New York City Metropolitan Transit Authority
   # (MTA) turnstile entries and exits by station and date.
@@ -156,3 +163,19 @@ turnstile = function()
 
     list(counts = counts, stations = stations)}
 turnstile = pairmemo(turnstile, pairmemo.dir)
+
+relative.subway.usage = function(the.year)
+   {d = turnstile()$counts[, by = date, .(uses =
+        sum(count.entries, na.rm = T) +
+        sum(count.exits, na.rm = T))]
+    typical = d[
+        year(date) != the.year &
+           date < lubridate::make_date(year(date), 4, 1),
+        keyby = .(m = month(date), w = wday(date)),
+        .(mean.t = mean(uses), sd.t = sdn(uses))]
+    d = d[year(date) == the.year, .(date, usage =
+       {x = cbind(month(date), wday(date))
+        x = typical[.(x)]
+        (uses - x$mean.t) / x$sd.t})]
+    setkey(d, date)
+    d}
