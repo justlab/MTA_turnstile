@@ -86,7 +86,7 @@ turnstile = function()
         out = out[count >= 0]
 
         out[, by = .(station, date), .(
-            units = length(unique(paste(ca, unit, scp))),
+            sources = length(unique(paste(ca, unit, scp))),
             count = sum(count))]})
 
     merge(l[[1]], l[[2]], all = T,
