@@ -3,12 +3,15 @@
 
 suppressPackageStartupMessages(
    {library(data.table)
-    library(stringr)})
+    library(stringr)
+    library(pbapply)})
 
 source("../Just_universal/code/download.R")
 
 data.root = "/data-coco/COVID_19"
 date.first = as.Date("2020-02-01")
+
+comma = scales::comma
 
 download = function(url, to, f, ...)
     download.update.meta(data.root, url, to, f, ...)
@@ -19,12 +22,12 @@ turnstile = function()
    {url.root = "http://web.mta.info/developers/data/nyct/turnstile/"
     file.interval.days = 7L
 
-    d = rbindlist(lapply(
+    message("Reading turnstile files")
+    d = rbindlist(pblapply(
         seq(date.first, lubridate::today("America/New_York"),
             by = file.interval.days),
         function(the.date)
-           {message("turnstile - ", the.date)
-            fname = sprintf("turnstile_%02d%02d%02d.txt",
+           {fname = sprintf("turnstile_%02d%02d%02d.txt",
               # `strftime` is platform-dependent, so it's a bit
               # safer to do this by hand.
                 year(the.date) %% 1000L,
@@ -74,9 +77,15 @@ turnstile = function()
 
     vnames = c("entries", "exits")
     l = lapply(vnames, function(vname)
-       {n.dropped = 0
+       {message("Decumulating - ", vname)
+        n.sources = nrow(d[, by = .(ca, unit, scp, station), 1])
+        n.sources.dropped = 0
+        n.obs = nrow(d)
+        n.obs.dropped = 0
+        bar = txtProgressBar(style = 3, min = 0, max = n.sources)
         out = d[, by = .(ca, unit, scp, station),
-           {x.old = get(vname)
+           {setTxtProgressBar(bar, .GRP)
+            x.old = get(vname)
             diffs = diff(x.old)
             if (.N >= min.obs.n &&
                     mean(diffs < 0) <= max.neg.diffs.p &&
@@ -84,15 +93,23 @@ turnstile = function()
                     all(diffs <= max.diff))
                 .(date = date[-1], count = diffs)
             else
-               {n.dropped <<- n.dropped + 1
+               {n.sources.dropped <<- n.sources.dropped + 1
+                n.obs.dropped <<- n.obs.dropped + .N
                 NULL}}]
-        message(sprintf("%s: dropped %d tuples", vname, n.dropped))
+        close(bar)
+        message(sprintf("Dropped %s sources of %s",
+            comma(n.sources.dropped), comma(n.sources)))
+        n.obs.dropped = n.obs.dropped + out[, sum(count < 0)]
         out = out[count >= 0]
+        message(sprintf("Dropped %s observations of %s",
+            comma(n.obs.dropped), comma(n.obs)))
 
+        message("Summarizing")
         out[, by = .(station, date), .(
             sources = length(unique(paste(ca, unit, scp))),
             count = sum(count))]})
 
+    message("Merging")
     merge(l[[1]], l[[2]], all = T,
         by = c("station", "date"),
         suffixes = paste0(".", vnames))}
