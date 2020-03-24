@@ -55,7 +55,7 @@ turnstile = function()
     setkey(d, ca, unit, scp, station, date, time)
 
     # The counts of entries and exits are cumulative per (`ca`,
-    # `unit`, `scp`, `station`) tuple (at least, I think that's the
+    # `unit`, `scp`) tuple (at least, I think that's the
     # right tuple), but sometimes the counters are reset. So, we
     # need to subtract each count from the next unless the result
     # would be negative, which indicates a reset. This method can only
@@ -95,7 +95,7 @@ turnstile = function()
         n.obs = nrow(d)
         n.obs.dropped = 0
         bar = txtProgressBar(style = 3, min = 0, max = n.sources)
-        out = d[, by = .(ca, unit, scp, station),
+        out = d[, by = .(ca, unit, scp),
            {setTxtProgressBar(bar, .GRP)
             x.old = get(vname)
             diffs = diff(x.old)
@@ -118,11 +118,21 @@ turnstile = function()
             comma(n.obs.dropped), comma(n.obs)))
 
         message("Summarizing")
-        out[, by = .(station, date), .(
-            sources = length(unique(paste(ca, unit, scp))),
+        out[, by = .(ca, date), .(
+            sources = length(unique(paste(unit, scp))),
             count = sum(count))]})
 
     message("Merging")
-    merge(l[[1]], l[[2]], all = T,
-        by = c("station", "date"),
-        suffixes = paste0(".", vnames))}
+    counts = merge(l[[1]], l[[2]], all = T,
+        by = c("ca", "date"),
+        suffixes = paste0(".", vnames))
+
+    # Observations with the same `ca` but different station names
+    # should be referring to the same station. Use the latest name for
+    # each station. Beware that different `ca`s can have the same
+    # station name.
+    message("Setting station names")
+    stations = d[, by = ca,
+        .(station.name = station[which.max(date)])]
+
+    list(counts = counts, stations = stations)}
