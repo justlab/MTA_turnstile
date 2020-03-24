@@ -31,16 +31,20 @@ turnstile = function()
                 file.path("mta_turnstile", fname),
                 fread)}))
 
-    stopifnot(!anyNA(d))
+    message("Processing")
+
     setnames(d, tolower(colnames(d)))
     setnames(d, "c/a", "ca")
+
+    stopifnot(!anyNA(d))
     stopifnot(all(d[, .(entries, exits)] >= 0))
     d = d[desc != "RECOVR AUD"]
       # Remove recovered-audit rows, which can interrupt otherwise
       # cumulative counts.
     d[, date := lubridate::mdy(date)]
     stopifnot(all(str_detect(d$time, "\\A\\d\\d:\\d\\d:\\d\\d\\z")))
-    stopifnot(all(d[, by = .(ca, unit, scp, station, date, time), .N]$N == 1))
+    stopifnot(all(d[,
+        by = .(ca, unit, scp, station, date, time), .N]$N == 1))
     setkey(d, ca, unit, scp, station, date, time)
 
     # The counts of entries and exits are cumulative per (`ca`,
