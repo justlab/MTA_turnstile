@@ -1,7 +1,8 @@
 suppressPackageStartupMessages(
    {library(data.table)
     library(stringr)
-    library(pbapply)})
+    library(pbapply)
+    library(sf)})
 
 source("../Just_universal/code/pairmemo.R")
 source("../Just_universal/code/download.R")
@@ -9,6 +10,9 @@ source("../Just_universal/code/download.R")
 data.root = "/data-coco/COVID_19"
 pairmemo.dir = file.path(data.root, "pairmemo")
 date.first = as.Date("2014-12-27")
+
+crs.lonlat = 4326 # https://epsg.io/4326
+crs.us.atlas = 2163 # https://epsg.io/2163
 
 comma = scales::comma
 
@@ -164,18 +168,53 @@ turnstile = function()
     list(counts = counts, stations = stations)}
 turnstile = pairmemo(turnstile, pairmemo.dir)
 
+station.boros = function()
+  # Return a factor of boro names, with one boro for each station.
+   {boros = download(
+        "https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Original",
+        "nyc_boros_shapefile.zip",
+        function(p) read_sf(paste0("/vsizip/", p, "/nybb_20a")))
+    stations = st_as_sf(turnstile()$stations,
+        coords = c("lon", "lat"), crs = crs.lonlat)
+    result = do.call(st_intersects, lapply(list(stations, boros),
+        function(x) st_transform(x, crs = crs.us.atlas)))
+    factor(sapply(result, function(x)
+        if (length(x) == 0)
+            NA
+        else if (length(x) == 1)
+            boros[x,]$BoroName
+        else
+            stop()))}
+station.boros = pairmemo(station.boros, pairmemo.dir)
+
 relative.subway.usage = function(the.year)
-   {d = turnstile()$counts[, by = date, .(uses =
-        sum(count.entries, na.rm = T) +
-        sum(count.exits, na.rm = T))]
-    typical = d[
-        year(date) != the.year &
-           date < lubridate::make_date(year(date), 4, 1),
-        keyby = .(m = month(date), w = wday(date)),
-        .(mean.t = mean(uses), sd.t = sdn(uses))]
-    d = d[year(date) == the.year, .(date, usage =
-       {x = cbind(month(date), wday(date))
-        x = typical[.(x)]
-        (uses - x$mean.t) / x$sd.t})]
-    setkey(d, date)
+  # For each date in the given year, compute a z-score of subway usage
+  # comparing that date to all other days that occur on the same month
+  # and day of the week, but in different years. The results are given
+  # per boro and also pooled across boros.
+   {counts = turnstile()$counts
+    counts[, boro := station.boros()[match(ca, turnstile()$stations$ca)]]
+    # Drop observations that we can't assign a boro to.
+    counts = counts[!is.na(boro)]
+
+    d = rbindlist(lapply(c(F, T), function(boro.split)
+       {d = copy(counts)
+        if (!boro.split)
+            d[, boro := "all"]
+        d = d[, by = .(date, boro), .(uses =
+            sum(count.entries, na.rm = T) +
+            sum(count.exits, na.rm = T))]
+        typical = d[
+            year(date) != the.year &
+                date < lubridate::make_date(year(date), 4, 1),
+            keyby = .(boro, m = month(date), w = wday(date)),
+            .(mean.t = mean(uses), sd.t = sdn(uses))]
+        d[year(date) == the.year, .(date, boro, usage =
+           {x = data.table(boro, month(date), wday(date))
+            x = typical[.(x)]
+            (uses - x$mean.t) / x$sd.t})]}))
+
+    d = dcast(d, date ~ boro, value.var = "usage")
+    setnames(d, make.names(colnames(d)))
+
     d}
