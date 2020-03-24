@@ -9,7 +9,7 @@ suppressPackageStartupMessages(
 source("../Just_universal/code/download.R")
 
 data.root = "/data-coco/COVID_19"
-date.first = as.Date("2020-02-01")
+date.first = as.Date("2014-12-27")
 
 comma = scales::comma
 
