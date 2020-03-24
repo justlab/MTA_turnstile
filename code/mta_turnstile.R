@@ -1,14 +1,13 @@
-# Get the number of New York City Metropolitan Transit Authority
-# (MTA) turnstile entries and exits by station and date.
-
 suppressPackageStartupMessages(
    {library(data.table)
     library(stringr)
     library(pbapply)})
 
+source("../Just_universal/code/pairmemo.R")
 source("../Just_universal/code/download.R")
 
 data.root = "/data-coco/COVID_19"
+pairmemo.dir = file.path(data.root, "pairmemo")
 date.first = as.Date("2014-12-27")
 
 comma = scales::comma
@@ -17,6 +16,8 @@ download = function(url, to, f, ...)
     download.update.meta(data.root, url, to, f, ...)
 
 turnstile = function()
+  # Get the number of New York City Metropolitan Transit Authority
+  # (MTA) turnstile entries and exits by station and date.
   # Field descriptions:
   # https://web.archive.org/web/20190904142924/http://web.mta.info/developers/resources/nyct/turnstile/ts_Field_Description.txt
    {url.root = "http://web.mta.info/developers/data/nyct/turnstile/"
@@ -135,4 +136,23 @@ turnstile = function()
     stations = d[, by = ca,
         .(station.name = station[which.max(date)])]
 
+    # Geolocate stations.
+    locations = download(
+        "https://raw.githubusercontent.com/chriswhong/nycturnstiles/master/geocoded.csv",
+        "mta_turnstile_locations.csv",
+        fread, header = F, col.names = c(
+            "unit", "ca", "station", "linename", "division",
+            "lat", "lon"))
+    setkey(locations, ca)
+    stations[, c("lon", "lat") :=
+        locations[.(stations$ca), .(lon, lat)]]
+    # Drop unlocated stations and their associated observations.
+    message(sprintf("Dropping %d unlocated stations ",
+        length(is.na(stations$lon))))
+    stations = stations[!is.na(lon)]
+    message(sprintf("Dropping %s observations",
+        counts[, comma(sum(!(ca %in% stations$ca)))]))
+    counts = counts[ca %in% stations$ca]
+
     list(counts = counts, stations = stations)}
+turnstile = pairmemo(turnstile, pairmemo.dir)
