@@ -25,7 +25,11 @@ turnstile = function()
         function(the.date)
            {message("turnstile - ", the.date)
             fname = sprintf("turnstile_%02d%02d%02d.txt",
-                year(the.date) %/% 100L, month(the.date), mday(the.date))
+              # `strftime` is platform-dependent, so it's a bit
+              # safer to do this by hand.
+                year(the.date) %% 1000L,
+                month(the.date),
+                mday(the.date))
             download(
                 paste0(url.root, fname),
                 file.path("mta_turnstile", fname),
