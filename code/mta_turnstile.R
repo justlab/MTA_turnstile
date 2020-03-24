@@ -70,6 +70,18 @@ turnstile = function()
     # and then going back to forwards counting. We'll try to
     # exclude these cases.
 
+    # First, remove some special cases, where counts jump back
+    # and forth between observations. Probably two turnstiles
+    # were being counted as one.
+
+    d = d[!(
+        (ca == "PTH12" & unit == "R542" & scp == "00-04-00" &
+           date %in% (as.Date("2019-04-27") + (0:3))) |
+        (ca == "PTH13" & unit == "R541" & scp == "00-00-04" &
+           date %in% (as.Date("2016-02-02") + (0:2))))]
+
+    # Now handle the rest.
+
     min.obs.n = 10L
     max.neg.diffs.p = .01
     min.pos.diffs.n = 3L
@@ -91,7 +103,10 @@ turnstile = function()
                     mean(diffs < 0) <= max.neg.diffs.p &&
                     sum(diffs > 0) >= min.pos.diffs.n &&
                     all(diffs <= max.diff))
-                .(date = date[-1], count = diffs)
+               {date.diffs = as.integer(diff(date))
+                i.keep = date.diffs <= 1 & diffs >= 0
+                n.obs.dropped <<- n.obs.dropped + sum(!i.keep)
+                .(date = date[-1][i.keep], count = diffs[i.keep])}
             else
                {n.sources.dropped <<- n.sources.dropped + 1
                 n.obs.dropped <<- n.obs.dropped + .N
@@ -99,8 +114,6 @@ turnstile = function()
         close(bar)
         message(sprintf("Dropped %s sources of %s",
             comma(n.sources.dropped), comma(n.sources)))
-        n.obs.dropped = n.obs.dropped + out[, sum(count < 0)]
-        out = out[count >= 0]
         message(sprintf("Dropped %s observations of %s",
             comma(n.obs.dropped), comma(n.obs)))
 
