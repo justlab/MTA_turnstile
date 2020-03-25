@@ -190,8 +190,8 @@ station.boros = pairmemo(station.boros, pairmemo.dir)
 relative.subway.usage = function(the.year)
   # For each date T in the given year, compute a measure of subway
   # usage comparing T to all other days that occur on the same month
-  # and day of the week, but in different years. The usage count for
-  # T is divided by the mean in the other days to get a proportion.
+  # and day of the week, but in different years. The usage count for T
+  # is divided by the median in the other days to get a proportion.
   # The results are given per boro and also pooled across boros.
    {counts = turnstile()$counts
     counts[, boro := station.boros()[match(ca, turnstile()$stations$ca)]]
@@ -209,10 +209,10 @@ relative.subway.usage = function(the.year)
             year(date) != the.year &
                 date < lubridate::make_date(year(date), 4, 1),
             keyby = .(boro, m = month(date), w = wday(date)),
-            .(mean.t = mean(uses))]
+            .(median.t = median(uses))]
         d[year(date) == the.year, .(date, boro, usage =
            {x = data.table(boro, month(date), wday(date))
-            uses / typical[.(x), mean.t]})]}))
+            uses / typical[.(x), median.t]})]}))
 
     d = dcast(d, date ~ boro, value.var = "usage")
     setnames(d, make.names(colnames(d)))
