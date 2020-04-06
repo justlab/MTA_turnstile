@@ -9,6 +9,8 @@ source("../Just_universal/code/download.R")
 
 data.root = "/data-coco/COVID_19"
 pairmemo.dir = file.path(data.root, "pairmemo")
+zcta.dir = "/data-belle/basemap/census/zcta"
+
 date.first = as.Date("2014-12-27")
 
 crs.lonlat = 4326 # https://epsg.io/4326
@@ -170,51 +172,60 @@ turnstile = pairmemo(turnstile, pairmemo.dir)
 
 station.boros = function()
   # Return a factor of boro names, with one boro for each station.
-   {boros = download(
+    factor(station.areas("BoroName", download(
         "https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Original",
         "nyc_boros_shapefile.zip",
-        function(p) read_sf(paste0("/vsizip/", p, "/nybb_20a")))
-    stations = st_as_sf(turnstile()$stations,
-        coords = c("lon", "lat"), crs = crs.lonlat)
-    result = do.call(st_intersects, lapply(list(stations, boros),
-        function(x) st_transform(x, crs = crs.us.atlas)))
-    factor(sapply(result, function(x)
-        if (length(x) == 0)
-            NA
-        else if (length(x) == 1)
-            boros[x,]$BoroName
-        else
-            stop()))}
+        function(p) read_sf(paste0("/vsizip/", p, "/nybb_20a")))))
 station.boros = pairmemo(station.boros, pairmemo.dir)
 
-relative.subway.usage = function(the.year)
+station.zips = function()
+  # Return a vector of ZIP codes, matching locations to ZIPs on the
+  # basis of ZIP Code Tabulation Areas (ZCTAs).
+    {v = station.areas("ZCTA5CE10", st_read(
+            file.path(zcta.dir, "tl_2019_us_zcta510.shp"), quiet = T)[
+        readRDS(file.path(zcta.dir, "zcta_index_in_NYC.rds")),])
+     as.integer(levels(v))[as.integer(v)]}
+station.zips = pairmemo(station.zips, pairmemo.dir)
+
+station.areas = function(colname, areas)
+   {stations = st_as_sf(turnstile()$stations,
+        coords = c("lon", "lat"), crs = crs.lonlat)
+    result = do.call(st_intersects, lapply(list(stations, areas),
+        function(x) st_transform(x, crs = crs.us.atlas)))
+    areas[[colname]][sapply(result, function(i)
+        if (length(i) == 0)
+            NA
+        else if (length(i) == 1)
+            i
+        else
+            stop())]}
+
+relative.subway.usage = function(the.year, by)
   # For each date T in the given year, compute a measure of subway
   # usage comparing T to all other days that occur on the same month
   # and day of the week, but in different years. The usage count for T
   # is divided by the median in the other days to get a proportion.
-  # The results are given per boro and also pooled across boros.
+  # The results are given per place and also pooled across places.
    {counts = turnstile()$counts
-    counts[, boro := station.boros()[match(ca, turnstile()$stations$ca)]]
-    # Drop observations that we can't assign a boro to.
-    counts = counts[!is.na(boro)]
 
-    d = rbindlist(lapply(c(F, T), function(boro.split)
+    counts[, place := switch(by,
+       boro = station.boros(),
+       zcta = as.character(station.zips()),
+       stop())[match(ca, turnstile()$stations$ca)]]
+    # Drop observations that we can't assign a place to.
+    counts = counts[!is.na(place)]
+
+    rbindlist(lapply(c(F, T), function(place.split)
        {d = copy(counts)
-        if (!boro.split)
-            d[, boro := "all"]
-        d = d[, by = .(date, boro), .(uses =
+        if (!place.split)
+            d[, place := "all"]
+        d = d[, by = .(date, place), .(uses =
             sum(count.entries, na.rm = T) +
             sum(count.exits, na.rm = T))]
         typical = d[
-            year(date) != the.year &
-                date < lubridate::make_date(year(date), 4, 1),
-            keyby = .(boro, m = month(date), w = wday(date)),
+            year(date) != the.year,
+            keyby = .(place, m = month(date), w = wday(date)),
             .(median.t = median(uses))]
-        d[year(date) == the.year, .(date, boro, usage =
-           {x = data.table(boro, month(date), wday(date))
-            uses / typical[.(x), median.t]})]}))
-
-    d = dcast(d, date ~ boro, value.var = "usage")
-    setnames(d, make.names(colnames(d)))
-
-    d}
+        d[year(date) == the.year, .(date, place, usage =
+           {x = data.table(place, month(date), wday(date))
+            uses / typical[.(x), median.t]})]}))}
