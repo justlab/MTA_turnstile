@@ -102,7 +102,7 @@ turnstile = function()
     vnames = c("entries", "exits")
     l = lapply(vnames, function(vname)
        {message("Decumulating - ", vname)
-        n.sources = nrow(d[, by = .(ca, unit, scp, station), 1])
+        n.sources = nrow(d[, by = .(ca, unit, scp), 1])
         n.sources.dropped = 0
         n.obs = nrow(d)
         n.obs.dropped = 0
