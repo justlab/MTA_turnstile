@@ -150,12 +150,19 @@ turnstile = function()
         .(station.name = station[which.max(date)])]
 
     # Geolocate stations.
-    locations = download(
-        "https://raw.githubusercontent.com/chriswhong/nycturnstiles/master/geocoded.csv",
-        "mta_turnstile_locations.csv",
-        fread, header = F, col.names = c(
-            "unit", "ca", "station", "linename", "division",
-            "lat", "lon"))
+    locations = rbind(
+        download(
+            "https://raw.githubusercontent.com/chriswhong/nycturnstiles/master/geocoded.csv",
+            "mta_turnstile_locations.csv",
+            fread, header = F, col.names = c(
+                "unit", "ca", "station", "linename", "division",
+                "lat", "lon"))[!is.na(lon), .(ca, lon, lat)],
+        # Add a few more station locations by hand.
+        data.table(
+            ca = c("N700", "N700A", "N701", "N701A", "N702", "N702A", "R550", "R551", "A049", "D001", "H007A", "N095A", "N098", "N330", "N539", "N601A", "PTH01", "PTH06", "PTH09", "PTH10", "PTH13", "PTH16", "PTH18", "PTH19", "PTH20", "PTH22", "R101", "R107D", "R108A", "R169", "R612"),
+            lon = c(-73.95836, -73.95836, -73.951921, -73.951921, -73.94766, -73.94766, -74.000596, -74.000596, -74.011052, -74.011717, -73.981719, -74.007983, -74.007983, -73.86161, -73.980324, -73.966291, -74.164494, -74.033998, -74.007022, -73.998802, -73.989231, -74.027647, -74.164494, -74.164494, -74.164494, -74.011417, -74.012983, -74.011417, -74.011417, -73.972363, -73.977417),
+            lat = c(40.768611, 40.768611, 40.777493, 40.777493, 40.783542, 40.783542, 40.755456, 40.755456, 40.710662, 40.635011, 40.730901, 40.709938, 40.709938, 40.729869, 40.666276, 40.764763, 40.734139, 40.726691, 40.733001, 40.734223, 40.747809, 40.735288, 40.734139, 40.734139, 40.734139, 40.71149, 40.703082, 40.71149, 40.71149, 40.79388, 40.684063)))
+    stopifnot(!anyDuplicated(locations$ca))
     setkey(locations, ca)
     stations[, c("lon", "lat") :=
         locations[.(stations$ca), .(lon, lat)]]
