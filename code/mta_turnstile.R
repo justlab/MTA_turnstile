@@ -161,7 +161,7 @@ turnstile = function()
         locations[.(stations$ca), .(lon, lat)]]
     # Drop unlocated stations and their associated observations.
     message(sprintf("Dropping %d unlocated stations ",
-        length(is.na(stations$lon))))
+        sum(is.na(stations$lon))))
     stations = stations[!is.na(lon)]
     message(sprintf("Dropping %s observations",
         counts[, comma(sum(!(ca %in% stations$ca)))]))
