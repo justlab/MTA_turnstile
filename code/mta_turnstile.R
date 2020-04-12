@@ -67,7 +67,7 @@ turnstile = function()
     stopifnot(all(str_detect(d$time, "\\A\\d\\d:\\d\\d:\\d\\d\\z")))
     stopifnot(all(d[,
         by = .(ca, unit, scp, station, date, time), .N]$N == 1))
-    d[, datetime := lubridate::mdy_hms(
+    d[, datetime := lubridate::ymd_hms(
         paste(date, time), tz = local.tz)]
     setkey(d, ca, unit, scp, station, datetime)
 
