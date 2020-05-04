@@ -195,10 +195,23 @@ station.boros = pairmemo(station.boros, pairmemo.dir)
 station.zips = function()
   # Return a vector of ZIP codes, matching locations to ZIPs on the
   # basis of ZIP Code Tabulation Areas (ZCTAs).
-    {v = station.areas("ZCTA5CE10", st_read(
+    {by.geo = station.areas("ZCTA5CE10", st_read(
             file.path(zcta.dir, "tl_2019_us_zcta510.shp"), quiet = T)[
         readRDS(file.path(zcta.dir, "zcta_index_in_NYC.rds")),])
-     as.integer(levels(v))[as.integer(v)]}
+     by.hand = c(
+         A006 = 10022,
+         A007 = 10022,
+         N037 = 10025,
+         N039 = 10025,
+         N040 = 10025,
+         N044 = 10024,
+         N045 = 10024,
+         N046 = 10023,
+         N049 = 10019,
+         N051 = 10019,
+         R158 = 10019)[turnstile()$stations$ca]
+     ifelse(!is.na(by.hand), as.integer(by.hand),
+         as.integer(levels(by.geo))[as.integer(by.geo)])}
 station.zips = pairmemo(station.zips, pairmemo.dir)
 
 station.areas = function(colname, areas)
@@ -230,7 +243,12 @@ station.neighborhoods = function()
             str_extract_all(d[i, 3], "\\d+")[[1]]))))
     setkey(d, zip)
     d[, neighborhood := factor(neighborhood)]
-    d[.(station.zips()), neighborhood]}
+    by.hand = factor(levels = levels(d$neighborhood), c(
+        "11430" = "Jamaica",
+        "10119" = "Chelsea and Clinton",
+        "10170" = "Gramercy Park and Murray Hill")[as.character(station.zips())])
+    dplyr::if_else(!is.na(by.hand), by.hand,
+        d[.(station.zips()), neighborhood])}
 
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
