@@ -214,6 +214,24 @@ station.areas = function(colname, areas)
         else
             stop())]}
 
+station.neighborhoods = function()
+  # Groups the ZIPs from `station.zips` into United Hospital Fund
+  # (UHF) neighborhoods.
+   {d = download(
+        "https://www.health.ny.gov/statistics/cancer/registry/appendix/neighborhoods.htm",
+        "uhf_neighborhoods.html",
+        function(p)
+            # XML::readHTMLTable doesn't identify the columns correctly.
+            str_match_all(paste(collapse = "\n", readLines(p)),
+                paste0('<td headers="header2">\\s*(.+?)</td>\\s*',
+                    '<td headers="header3">\\s*(.+?)</td>'))[[1]])
+    d = rbindlist(lapply(1 : nrow(d), function(i)
+        data.table(neighborhood = d[i, 2], zip = as.integer(
+            str_extract_all(d[i, 3], "\\d+")[[1]]))))
+    setkey(d, zip)
+    d[, neighborhood := factor(neighborhood)]
+    d[.(station.zips()), neighborhood]}
+
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
   # usage comparing T to all other days that occur on the same month
@@ -225,6 +243,7 @@ relative.subway.usage = function(the.year, by, ...)
     counts[, place := switch(by,
        boro = station.boros(),
        zcta = as.character(station.zips()),
+       nhood = station.neighborhoods(),
        stop())[match(ca, turnstile()$stations$ca)]]
     # Drop observations that we can't assign a place to.
     counts = counts[!is.na(place)]
