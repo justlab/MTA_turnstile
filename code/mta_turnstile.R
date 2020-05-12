@@ -228,27 +228,13 @@ station.areas = function(colname, areas)
             stop())]}
 
 station.neighborhoods = function()
-  # Groups the ZIPs from `station.zips` into United Hospital Fund
-  # (UHF) neighborhoods.
-   {d = download(
-        "https://www.health.ny.gov/statistics/cancer/registry/appendix/neighborhoods.htm",
-        "uhf_neighborhoods.html",
-        function(p)
-            # XML::readHTMLTable doesn't identify the columns correctly.
-            str_match_all(paste(collapse = "\n", readLines(p)),
-                paste0('<td headers="header2">\\s*(.+?)</td>\\s*',
-                    '<td headers="header3">\\s*(.+?)</td>'))[[1]])
-    d = rbindlist(lapply(1 : nrow(d), function(i)
-        data.table(neighborhood = d[i, 2], zip = as.integer(
-            str_extract_all(d[i, 3], "\\d+")[[1]]))))
-    setkey(d, zip)
-    d[, neighborhood := factor(neighborhood)]
-    by.hand = factor(levels = levels(d$neighborhood), c(
-        "11430" = "Jamaica",
-        "10119" = "Chelsea and Clinton",
-        "10170" = "Gramercy Park and Murray Hill")[as.character(station.zips())])
-    dplyr::if_else(!is.na(by.hand), by.hand,
-        d[.(station.zips()), neighborhood])}
+  # Return an integer vector of United Hospital Fund (UHF)
+  # neighborhood codes.
+    as.integer(station.areas("UHFCODE", download(
+        "https://www1.nyc.gov/assets/doh/downloads/zip/uhf42_dohmh_2009.zip",
+        "nyc_uhf_nhoods_shapefile.zip",
+        function(p) read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
+station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
 
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
