@@ -192,6 +192,15 @@ station.boros = function()
         function(p) read_sf(paste0("/vsizip/", p, "/nybb_20a")))))
 station.boros = pairmemo(station.boros, pairmemo.dir)
 
+station.neighborhoods = function()
+  # Return an integer vector of United Hospital Fund (UHF)
+  # neighborhood codes.
+    as.integer(station.areas("UHFCODE", download(
+        "https://www1.nyc.gov/assets/doh/downloads/zip/uhf42_dohmh_2009.zip",
+        "nyc_uhf_nhoods_shapefile.zip",
+        function(p) read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
+station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
+
 station.zips = function()
   # Return a vector of ZIP codes, matching locations to ZIPs on the
   # basis of ZIP Code Tabulation Areas (ZCTAs).
@@ -226,15 +235,6 @@ station.areas = function(colname, areas)
             i
         else
             stop())]}
-
-station.neighborhoods = function()
-  # Return an integer vector of United Hospital Fund (UHF)
-  # neighborhood codes.
-    as.integer(station.areas("UHFCODE", download(
-        "https://www1.nyc.gov/assets/doh/downloads/zip/uhf42_dohmh_2009.zip",
-        "nyc_uhf_nhoods_shapefile.zip",
-        function(p) read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
-station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
 
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
