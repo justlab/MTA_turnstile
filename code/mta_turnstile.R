@@ -247,7 +247,7 @@ relative.subway.usage = function(the.year, by, ...)
     counts[, place := switch(by,
        boro = station.boros(),
        zcta = as.character(station.zips()),
-       nhood = station.neighborhoods(),
+       nhood = as.character(station.neighborhoods()),
        stop())[match(ca, turnstile()$stations$ca)]]
     # Drop observations that we can't assign a place to.
     counts = counts[!is.na(place)]
