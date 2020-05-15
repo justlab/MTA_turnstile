@@ -195,10 +195,21 @@ station.boros = pairmemo(station.boros, pairmemo.dir)
 station.neighborhoods = function()
   # Return an integer vector of United Hospital Fund (UHF)
   # neighborhood codes.
-    as.integer(station.areas("UHFCODE", download(
+   {by.geo = as.integer(station.areas("UHFCODE", download(
         "https://www1.nyc.gov/assets/doh/downloads/zip/uhf42_dohmh_2009.zip",
         "nyc_uhf_nhoods_shapefile.zip",
         function(p) read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
+    by.hand = c(
+        N037 = 304,
+        N039 = 304,
+        N040 = 304,
+        N044 = 304,
+        N045 = 304,
+        N046 = 304,
+        N182 = 407,
+        JFK01 = 407,
+        JFK02 = 407)[turnstile()$stations$ca]
+    ifelse(!is.na(by.hand), as.integer(by.hand), by.geo)}
 station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
 
 station.zips = function()
