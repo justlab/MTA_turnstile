@@ -69,7 +69,7 @@ turnstile = function()
         by = .(ca, unit, scp, station, date, time), .N]$N == 1))
     d[, datetime := lubridate::ymd_hms(
         paste(date, time), tz = local.tz)]
-    setkey(d, ca, unit, scp, station, datetime)
+    setkey(d, ca, unit, scp, datetime)
 
     # Observations with the same `ca` but different station names
     # should be referring to the same station. Use the latest name for
