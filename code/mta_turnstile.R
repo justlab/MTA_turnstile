@@ -66,10 +66,12 @@ turnstile = function()
     d[, date := lubridate::mdy(date)]
     stopifnot(all(str_detect(d$time, "\\A\\d\\d:\\d\\d:\\d\\d\\z")))
     stopifnot(all(d[,
-        by = .(ca, unit, scp, station, date, time), .N]$N == 1))
+        by = .(ca, scp, date, time), .N]$N == 1))
+    message("Parsing timestamps")
     d[, datetime := lubridate::ymd_hms(
         paste(date, time), tz = local.tz)]
-    setkey(d, ca, unit, scp, datetime)
+    message("Sorting")
+    setkey(d, ca, scp, datetime)
 
     # Observations with the same `ca` but different station names
     # should be referring to the same station. Use the latest name for
@@ -104,15 +106,15 @@ turnstile = function()
         d[, comma(sum(!(ca %in% stations$ca)))]))
     d = d[ca %in% stations$ca]
 
-    # The counts of entries and exits are cumulative per (`ca`,
-    # `unit`, `scp`) tuple (at least, I think that's the
-    # right tuple), but sometimes the counters are reset. So, we
-    # need to subtract each count from the next unless the result
-    # would be negative, which indicates a reset. This method can only
-    # detect resets imperfectly, but I can't see any other way to do
-    # it. Worse, the number to which the counter is reset isn't
-    # always 0, so we can't even assume that there have been at least
-    # as many entries or exits as the new count.
+    # The counts of entries and exits are cumulative per (`ca`,`scp`)
+    # tuple (at least, I think that's the right tuple), but sometimes
+    # the counters are reset. So, we need to subtract each count from
+    # the next unless the result would be negative, which indicates a
+    # reset. This method can only detect resets imperfectly, but I
+    # can't see any other way to do it. Worse, the number to which the
+    # counter is reset isn't always 0, so we can't even assume that
+    # there have been at least as many entries or exits as the new
+    # count.
     #
     # And then there are some cases that are just weird, such as
     # some turnstiles appearing to count backwards for a while,
@@ -125,9 +127,9 @@ turnstile = function()
     # were being counted as one.
 
     d = d[!(
-        (ca == "PTH12" & unit == "R542" & scp == "00-04-00" &
+        (ca == "PTH12" & scp == "00-04-00" &
            date %in% (as.Date("2019-04-27") + (0:3))) |
-        (ca == "PTH13" & unit == "R541" & scp == "00-00-04" &
+        (ca == "PTH13" & scp == "00-00-04" &
            date %in% (as.Date("2016-02-02") + (0:2))))]
 
     # Now handle the rest.
@@ -139,12 +141,12 @@ turnstile = function()
 
     l = sapply(c("entries", "exits"), simplify = F, function(vname)
        {message("Decumulating - ", vname)
-        n.sources = nrow(d[, by = .(ca, unit, scp), 1])
+        n.sources = nrow(d[, by = .(ca, scp), 1])
         n.sources.dropped = 0
         n.obs = nrow(d)
         n.obs.dropped = 0
         bar = txtProgressBar(style = 3, min = 0, max = n.sources)
-        out = d[, by = .(ca, unit, scp),
+        out = d[, by = .(ca, scp),
            {setTxtProgressBar(bar, .GRP)
             x.old = get(vname)
             diffs = diff(x.old)
