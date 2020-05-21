@@ -136,7 +136,6 @@ turnstile = function()
 
     min.obs.n = 10L
     max.neg.diffs.p = .01
-    min.pos.diffs.n = 3L
     max.diff = 100e3
 
     l = sapply(c("entries", "exits"), simplify = F, function(vname)
@@ -150,13 +149,12 @@ turnstile = function()
            {setTxtProgressBar(bar, .GRP)
             x.old = get(vname)
             diffs = diff(x.old)
-            if (.N >= min.obs.n &&
-                    mean(diffs < 0) <= max.neg.diffs.p &&
-                    sum(diffs > 0) >= min.pos.diffs.n &&
-                    all(diffs <= max.diff))
-               {date.diffs = as.integer(diff(date))
-                i.keep = date.diffs <= 1 & diffs >= 0
-                n.obs.dropped <<- n.obs.dropped + sum(!i.keep)
+            date.diffs = as.integer(diff(date))
+            i.keep = date.diffs <= 1 &
+                diffs >= 0 & diffs <= max.diff
+            if (sum(i.keep) >= min.obs.n &&
+                    mean(diffs < 0) <= max.neg.diffs.p)
+               {n.obs.dropped <<- n.obs.dropped + sum(!i.keep)
                 .(datetime = datetime[-1][i.keep], count = diffs[i.keep])}
             else
                {n.sources.dropped <<- n.sources.dropped + 1
