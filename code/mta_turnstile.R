@@ -267,13 +267,18 @@ relative.subway.usage = function(the.year, by, ...)
        {d = copy(counts)
         if (!place.split)
             d[, place := "all"]
-        d = d[, by = .(date, place), .(uses =
+        d = d[, by = .(date, place), .(uses = as.double(
             sum(count.entries, na.rm = T) +
-            sum(count.exits, na.rm = T))]
+            sum(count.exits, na.rm = T)))]
         typical = d[
             year(date) != the.year,
             keyby = .(place, m = month(date), w = wday(date)),
-            .(median.t = median(uses))]
-        d[year(date) == the.year, .(date, place, usage =
+            .(mean.t = mean(uses), median.t = median(uses),
+                sd.t = sdn(uses), mad.t = mean(abs(uses - median(uses))))]
+        d[year(date) == the.year,
            {x = data.table(place, month(date), wday(date))
-            uses / typical[.(x), median.t]})]}))}
+            x = typical[.(x)]
+            .(date, place,
+                usage.z = (uses - x$mean.t) / x$sd.t,
+                usage.median.mad = (uses - x$median.t) / x$mad.t,
+                usage.median.ratio = uses / x$median.t)}]}))}
