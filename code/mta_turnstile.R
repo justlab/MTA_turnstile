@@ -2,10 +2,8 @@ suppressPackageStartupMessages(
    {library(data.table)
     library(stringr)
     library(pbapply)
-    library(sf)})
-
-source("../Just_universal/code/pairmemo.R")
-source("../Just_universal/code/download.R")
+    library(sf)
+    library(Just.universal)})
 
 data.root = "/data-coco/COVID_19"
 pairmemo.dir = file.path(data.root, "pairmemo")
