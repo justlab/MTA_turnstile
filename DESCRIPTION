@@ -1,0 +1,13 @@
+Package: MTA.turnstile
+Version: 0.0.0.9000
+RoxygenNote: 7.0.0
+Encoding: UTF-8
+Imports:
+    data.table,
+    Just.universal,
+    lubridate,
+    pbapply,
+    sf,
+    stringr
+Remotes:
+    github::justlab/Just_universal

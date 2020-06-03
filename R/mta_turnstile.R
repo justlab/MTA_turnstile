@@ -1,12 +1,18 @@
-suppressPackageStartupMessages(
-   {library(data.table)
-    library(stringr)
-    library(pbapply)
-    library(sf)
-    library(Just.universal)})
-
-data.root = "/data-coco/COVID_19"
-pairmemo.dir = file.path(data.root, "pairmemo")
+data.root = NULL
+pairmemo.dir = NULL
+onload.exprs = list()
+ol = function(the.expr)
+   {the.expr = substitute(the.expr)
+    onload.exprs <<- c(onload.exprs, list(the.expr))}
+.onLoad = function(libname, pkgname)
+   {data.root <<- Sys.getenv("MTA_TURNSTILE_DATA_DIR")
+    if (data.root == "")
+        data.root <<- tempdir()
+    pairmemo.dir <<- file.path(data.root, "pairmemo")
+    dir.create(pairmemo.dir, showWarnings = F)
+    pairmemo = Just.universal::pairmemo
+    for (e in onload.exprs)
+        eval(e)}
 
 date.first = as.Date("2014-12-27")
 local.tz = "America/New_York"
@@ -17,7 +23,7 @@ crs.us.atlas = 2163 # https://epsg.io/2163
 comma = scales::comma
 
 download = function(url, to, f, ...)
-    download.update.meta(data.root, url, to, f, ...)
+    Just.universal::download.update.meta(data.root, url, to, f, ...)
 
 varn = function(v, na.rm = F)
 # Variance with n instead of (n - 1) in the denominator.
@@ -26,6 +32,8 @@ sdn = function(v, na.rm = F)
 # Standard deviation with n instead of (n - 1) in the denominator.
     sqrt(varn(v, na.rm))
 
+#' @export
+#' @import data.table
 turnstile = function()
   # Get the number of New York City Metropolitan Transit Authority
   # (MTA) turnstile entries and exits by station and timestamp.
@@ -35,7 +43,7 @@ turnstile = function()
     file.interval.days = 7L
 
     message("Reading turnstile files")
-    d = rbindlist(pblapply(
+    d = rbindlist(pbapply::pblapply(
         seq(date.first, lubridate::today("America/New_York"),
             by = file.interval.days),
         function(the.date)
@@ -61,7 +69,7 @@ turnstile = function()
       # Remove recovered-audit rows, which can interrupt otherwise
       # cumulative counts.
     d[, date := lubridate::mdy(date)]
-    stopifnot(all(str_detect(d$time, "\\A\\d\\d:\\d\\d:\\d\\d\\z")))
+    stopifnot(all(stringr::str_detect(d$time, "\\A\\d\\d:\\d\\d:\\d\\d\\z")))
     stopifnot(all(d[,
         by = .(ca, scp, date, time), .N]$N == 1))
     message("Parsing timestamps")
@@ -165,8 +173,9 @@ turnstile = function()
         out[, .(ca, datetime, count)]})
 
     c(l, list(stations = stations))}
-turnstile = pairmemo(turnstile, pairmemo.dir, mem = T)
+ol(turnstile <<- pairmemo(turnstile, pairmemo.dir, mem = T))
 
+#' @export
 turnstile.daily = function(hour.start = NULL, hour.end = NULL)
   # Create a data table of daily entries and exits per station.
    {l = turnstile()
@@ -179,15 +188,15 @@ turnstile.daily = function(hour.start = NULL, hour.end = NULL)
     merge(counts[[1]], counts[[2]], all = T,
         by = c("ca", "date"),
         suffixes = paste0(".", names(counts)))}
-turnstile.daily = pairmemo(turnstile.daily, pairmemo.dir, mem = T, fst = T)
+ol(turnstile.daily <<- pairmemo(turnstile.daily, pairmemo.dir, mem = T, fst = T))
 
 station.boros = function()
   # Return a factor of boro names, with one boro for each station.
     factor(station.areas("BoroName", download(
         "https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Original",
         "nyc_boros_shapefile.zip",
-        function(p) read_sf(paste0("/vsizip/", p, "/nybb_20a")))))
-station.boros = pairmemo(station.boros, pairmemo.dir)
+        function(p) sf::read_sf(paste0("/vsizip/", p, "/nybb_20a")))))
+ol(station.boros <<- pairmemo(station.boros, pairmemo.dir))
 
 station.neighborhoods = function()
   # Return an integer vector of United Hospital Fund (UHF)
@@ -195,7 +204,7 @@ station.neighborhoods = function()
    {by.geo = as.integer(station.areas("UHFCODE", download(
         "https://www1.nyc.gov/assets/doh/downloads/zip/uhf42_dohmh_2009.zip",
         "nyc_uhf_nhoods_shapefile.zip",
-        function(p) read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
+        function(p) sf::read_sf(paste0("/vsizip/", p, "/UHF_42_DOHMH_2009")))))
     by.hand = c(
         N037 = 304,
         N039 = 304,
@@ -207,7 +216,7 @@ station.neighborhoods = function()
         JFK01 = 407,
         JFK02 = 407)[turnstile()$stations$ca]
     ifelse(!is.na(by.hand), as.integer(by.hand), by.geo)}
-station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
+ol(station.neighborhoods <<- pairmemo(station.neighborhoods, pairmemo.dir))
 
 station.zips = function()
   # Return a vector of ZIP codes, matching locations to ZIPs on the
@@ -215,7 +224,7 @@ station.zips = function()
     {by.geo = station.areas("ZIPCODE", download(
         "https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20",
         "nyc_zips.zip",
-        function(p) read_sf(paste0("/vsizip/", p))))
+        function(p) sf::read_sf(paste0("/vsizip/", p))))
      by.hand = unname(c(
          A006 = 10022,
          A007 = 10022,
@@ -230,13 +239,13 @@ station.zips = function()
          R158 = 10019)[turnstile()$stations$ca])
      ifelse(!is.na(by.hand), as.integer(by.hand),
          as.integer(by.geo))}
-station.zips = pairmemo(station.zips, pairmemo.dir)
+ol(station.zips <<- pairmemo(station.zips, pairmemo.dir))
 
 station.areas = function(colname, areas)
-   {stations = st_as_sf(turnstile()$stations,
+   {stations = sf::st_as_sf(turnstile()$stations,
         coords = c("lon", "lat"), crs = crs.lonlat)
-    result = do.call(st_intersects, lapply(list(stations, areas),
-        function(x) st_transform(x, crs = crs.us.atlas)))
+    result = do.call(sf::st_intersects, lapply(list(stations, areas),
+        function(x) sf::st_transform(x, crs = crs.us.atlas)))
     areas[[colname]][sapply(result, function(i)
         if (length(i) == 0)
             NA
@@ -245,6 +254,7 @@ station.areas = function(colname, areas)
         else
             stop())]}
 
+#' @export
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
   # usage comparing T to all other days that occur on the same month
