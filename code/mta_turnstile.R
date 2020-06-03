@@ -7,7 +7,6 @@ suppressPackageStartupMessages(
 
 data.root = "/data-coco/COVID_19"
 pairmemo.dir = file.path(data.root, "pairmemo")
-zcta.dir = "/data-belle/basemap/census/zcta"
 
 date.first = as.Date("2014-12-27")
 local.tz = "America/New_York"
@@ -213,10 +212,11 @@ station.neighborhoods = pairmemo(station.neighborhoods, pairmemo.dir)
 station.zips = function()
   # Return a vector of ZIP codes, matching locations to ZIPs on the
   # basis of ZIP Code Tabulation Areas (ZCTAs).
-    {by.geo = station.areas("ZCTA5CE10", st_read(
-            file.path(zcta.dir, "tl_2019_us_zcta510.shp"), quiet = T)[
-        readRDS(file.path(zcta.dir, "zcta_index_in_NYC.rds")),])
-     by.hand = c(
+    {by.geo = station.areas("ZIPCODE", download(
+        "https://data.cityofnewyork.us/api/views/i8iw-xf4u/files/YObIR0MbpUVA0EpQzZSq5x55FzKGM2ejSeahdvjqR20",
+        "nyc_zips.zip",
+        function(p) read_sf(paste0("/vsizip/", p))))
+     by.hand = unname(c(
          A006 = 10022,
          A007 = 10022,
          N037 = 10025,
@@ -227,9 +227,9 @@ station.zips = function()
          N046 = 10023,
          N049 = 10019,
          N051 = 10019,
-         R158 = 10019)[turnstile()$stations$ca]
+         R158 = 10019)[turnstile()$stations$ca])
      ifelse(!is.na(by.hand), as.integer(by.hand),
-         as.integer(levels(by.geo))[as.integer(by.geo)])}
+         as.integer(by.geo))}
 station.zips = pairmemo(station.zips, pairmemo.dir)
 
 station.areas = function(colname, areas)
