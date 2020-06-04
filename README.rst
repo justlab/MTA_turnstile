@@ -1,8 +1,9 @@
-This repository has R code to read and filter data on the usage of trains, particularly subways, in New York City. It automatically downloads the raw data from the official website of the Metropolitan Transportation Authority (MTA). The code was originally written to quantify the decline in subway usage due to COVID-19.
+This R package has functions to read and filter data on the usage of trains, particularly subways, in New York City. It automatically downloads the raw data from the official website of the Metropolitan Transportation Authority (MTA). The code was originally written to quantify the decline in subway usage due to COVID-19.
 
-`Just_universal`_ is required.
+You can install the package with |X|_. Set the environment variable ``MTA_TURNSTILE_DATA_DIR`` to control where downloads and results are cached.
 
-.. _`Just_universal`: https://github.com/justlab/Just_universal
+.. |X| replace:: ``remotes::install_github``
+.. _X: https://www.rdocumentation.org/packages/remotes/topics/install_github
 
 License
 ============================================================
