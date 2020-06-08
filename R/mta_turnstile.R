@@ -8,6 +8,7 @@ ol = function(the.expr)
    {data.root <<- Sys.getenv("MTA_TURNSTILE_DATA_DIR")
     if (data.root == "")
         data.root <<- tempdir()
+    packageStartupMessage("MTA.turnstile data directory: ", data.root)
     pairmemo.dir <<- file.path(data.root, "pairmemo")
     dir.create(pairmemo.dir, showWarnings = F)
     pairmemo = Just.universal::pairmemo
