@@ -1,19 +1,16 @@
 data.root = NULL
-pairmemo.dir = NULL
-onload.exprs = list()
-ol = function(the.expr)
-   {the.expr = substitute(the.expr)
-    onload.exprs <<- c(onload.exprs, list(the.expr))}
 .onLoad = function(libname, pkgname)
    {data.root <<- Sys.getenv("MTA_TURNSTILE_DATA_DIR")
     if (data.root == "")
         data.root <<- tempdir()
-    packageStartupMessage("MTA.turnstile data directory: ", data.root)
-    pairmemo.dir <<- file.path(data.root, "pairmemo")
-    dir.create(pairmemo.dir, showWarnings = F)
-    pairmemo = Just.universal::pairmemo
-    for (e in onload.exprs)
-        eval(e)}
+    packageStartupMessage("MTA.turnstile data directory: ", data.root)}
+
+pm = function(...) Just.universal::pairmemo(
+    directory = function()
+       {dir.create(file.path(data.root, "pairmemo"), showWarnings = F)
+        file.path(data.root, "pairmemo")},
+    n.frame = 2,
+    ...)
 
 date.first = as.Date("2014-12-27")
 local.tz = "America/New_York"
@@ -33,9 +30,9 @@ sdn = function(v, na.rm = F)
 # Standard deviation with n instead of (n - 1) in the denominator.
     sqrt(varn(v, na.rm))
 
-#' @export
+#' @rawNamespace export(turnstile)
 #' @import data.table
-turnstile = function()
+pm(turnstile <- function()
   # Get the number of New York City Metropolitan Transit Authority
   # (MTA) turnstile entries and exits by station and timestamp.
   # Field descriptions:
@@ -173,11 +170,12 @@ turnstile = function()
             comma(n.obs.dropped), comma(n.obs)))
         out[, .(ca, datetime, count)]})
 
-    c(l, list(stations = stations))}
-ol(turnstile <<- pairmemo(turnstile, pairmemo.dir, mem = T))
+    c(l, list(stations = stations))})
 
-#' @export
-turnstile.daily = function(hour.start = NULL, hour.end = NULL)
+#' @rawNamespace export(turnstile.daily)
+#' @import data.table
+pm(mem = T, fst = T,
+turnstile.daily <- function(hour.start = NULL, hour.end = NULL)
   # Create a data table of daily entries and exits per station.
    {l = turnstile()
     counts = sapply(c("entries", "exits"), simplify = F, function(vname)
@@ -188,18 +186,16 @@ turnstile.daily = function(hour.start = NULL, hour.end = NULL)
             .(count = sum(count))])
     merge(counts[[1]], counts[[2]], all = T,
         by = c("ca", "date"),
-        suffixes = paste0(".", names(counts)))}
-ol(turnstile.daily <<- pairmemo(turnstile.daily, pairmemo.dir, mem = T, fst = T))
+        suffixes = paste0(".", names(counts)))})
 
-station.boros = function()
+pm(station.boros <- function()
   # Return a factor of boro names, with one boro for each station.
     factor(station.areas("BoroName", download(
         "https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Original",
         "nyc_boros_shapefile.zip",
-        function(p) sf::read_sf(paste0("/vsizip/", p, "/nybb_20a")))))
-ol(station.boros <<- pairmemo(station.boros, pairmemo.dir))
+        function(p) sf::read_sf(paste0("/vsizip/", p, "/nybb_20a"))))))
 
-station.neighborhoods = function()
+pm(station.neighborhoods <- function()
   # Return an integer vector of United Hospital Fund (UHF)
   # neighborhood codes.
    {by.geo = as.integer(station.areas("UHFCODE", download(
@@ -216,10 +212,9 @@ station.neighborhoods = function()
         N182 = 407,
         JFK01 = 407,
         JFK02 = 407)[turnstile()$stations$ca]
-    ifelse(!is.na(by.hand), as.integer(by.hand), by.geo)}
-ol(station.neighborhoods <<- pairmemo(station.neighborhoods, pairmemo.dir))
+    ifelse(!is.na(by.hand), as.integer(by.hand), by.geo)})
 
-station.zips = function()
+pm(station.zips <- function()
   # Return a vector of ZIP codes, matching locations to ZIPs on the
   # basis of ZIP Code Tabulation Areas (ZCTAs).
     {by.geo = station.areas("ZIPCODE", download(
@@ -239,8 +234,7 @@ station.zips = function()
          N051 = 10019,
          R158 = 10019)[turnstile()$stations$ca])
      ifelse(!is.na(by.hand), as.integer(by.hand),
-         as.integer(by.geo))}
-ol(station.zips <<- pairmemo(station.zips, pairmemo.dir))
+         as.integer(by.geo))})
 
 station.areas = function(colname, areas)
    {stations = sf::st_as_sf(turnstile()$stations,
@@ -255,7 +249,7 @@ station.areas = function(colname, areas)
         else
             stop())]}
 
-#' @export
+#' @rawNamespace export(relative.subway.usage)
 relative.subway.usage = function(the.year, by, ...)
   # For each date T in the given year, compute a measure of subway
   # usage comparing T to all other days that occur on the same month
