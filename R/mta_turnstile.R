@@ -21,7 +21,8 @@ crs.us.atlas = 2163 # https://epsg.io/2163
 comma = scales::comma
 
 download = function(url, to, f, ...)
-    Just.universal::download.update.meta(data.root, url, to, f, ...)
+    f(Just.universal::download.update.meta(
+        url, file.path(data.root, "downloads"), to), ...)
 
 varn = function(v, na.rm = F)
 # Variance with n instead of (n - 1) in the denominator.
