@@ -194,7 +194,17 @@ pm(station.boros <- function()
     factor(station.areas("BoroName", download(
         "https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Original",
         "nyc_boros_shapefile.zip",
-        function(p) sf::read_sf(paste0("/vsizip/", p))))))
+        function(p){
+          # check if shapefile is inside a directory
+          zl = zip_list(p)
+          shppath = dirname(grep("nybb\\.shp$", zl$filename, value = TRUE))
+          if(shppath == "."){
+            fullpath = paste0("/vsizip/", p) 
+          } else {
+            fullpath = paste0("/vsizip/", p, "/", shppath) 
+          }
+          sf::read_sf(fullpath)
+        }))))
 
 pm(station.neighborhoods <- function()
   # Return an integer vector of United Hospital Fund (UHF)
